@@ -1,4 +1,5 @@
-terraform.tfstate
-terraform.tfstate.backup
-terraform.tfstate.backupi
-terraform-upload-output.log
+*.hcl
+*.log
+*.tfstate
+*.backup
+*.backupi
