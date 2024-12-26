@@ -1,23 +1,25 @@
 resource "null_resource" "check_and_upload" {
   provisioner "local-exec" {
     command = <<EOT
-      # Check if the file already exists in the storage pool
       existing_file=$(curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
         "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/storage/${var.local_storage_pool}/content" \
         | jq -r '.data[] | select(.volid | endswith("jammy-server-cloudimg-amd64.img")) | .volid')
 
       if [ -z "$existing_file" ]; then
-        # File does not exist, proceed with upload
+        echo "File not found. Uploading..."
         curl -X POST --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
              --header "Content-Type: multipart/form-data" \
              --form "content=iso" \
              --form "filename=@/home/sudo-amine/Downloads/jammy-server-cloudimg-amd64.img" \
              "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/storage/${var.local_storage_pool}/upload" \
              --silent --show-error
+      else
+        echo "File already exists. Skipping upload."
       fi
     EOT
   }
 }
+
 
 
 resource "proxmox_vm_qemu" "template_vm" {
@@ -31,6 +33,7 @@ resource "proxmox_vm_qemu" "template_vm" {
   target_node = var.proxmox_node
   boot        = "order=scsi0;net0"
   vm_state    = "stopped"
+  ciuser      = var.cloned_user
   ipconfig0   = "ip=${var.template_vm_ip}/${var.network_subnet},gw=${var.network_gateway}"
   sshkeys     = local.ssh_public_key
   agent       = 1
@@ -68,7 +71,13 @@ resource "null_resource" "import_disk" {
 
   provisioner "remote-exec" {
     inline = [
-      "qm importdisk ${var.template_vm_id} /var/lib/vz/template/iso/jammy-server-cloudimg-amd64.img ${var.local_storage_pool_lvm}"
+      "disk_exists=$(ls /var/lib/vz/images/${var.template_vm_id} | grep 'vm-${var.template_vm_id}-disk-0.raw')",
+      "if [ -z \"$disk_exists\" ]; then",
+      "  echo 'Disk does not exist. Importing...';",
+      "  qm importdisk ${var.template_vm_id} /var/lib/vz/template/iso/jammy-server-cloudimg-amd64.img ${var.local_storage_pool_lvm};",
+      "else",
+      "  echo 'Disk already imported. Skipping.';",
+      "fi"
     ]
   }
 }
@@ -79,11 +88,19 @@ resource "null_resource" "attach_disk" {
 
   provisioner "local-exec" {
     command = <<EOT
-      # Attach the imported disk to the VM
-      curl -X PUT --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
-           --header "Content-Type: application/json" \
-           --data '{"scsi0": "${var.local_storage_pool_lvm}:vm-${var.template_vm_id}-disk-0"}' \
-           "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/config"
+      attached_disk=$(curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+        "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/config" \
+        | jq -r '.data.scsi0')
+
+      if [ "$attached_disk" != "${var.local_storage_pool_lvm}:vm-${var.template_vm_id}-disk-0" ]; then
+        echo "Attaching disk..."
+        curl -X PUT --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+             --header "Content-Type: application/json" \
+             --data '{"scsi0": "${var.local_storage_pool_lvm}:vm-${var.template_vm_id}-disk-0"}' \
+             "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/config"
+      else
+        echo "Disk already attached. Skipping."
+      fi
     EOT
   }
 }
@@ -94,11 +111,21 @@ resource "null_resource" "resize_disk" {
 
   provisioner "local-exec" {
     command = <<EOT
-      # Resize the attached disk
-      curl -X PUT --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
-           --header "Content-Type: application/json" \
-           --data '{"disk": "scsi0", "size": "+${var.template_vm_disk_size}"}' \
-           "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/resize"
+      current_size=$(curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+        "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/config" \
+        | jq -r '.data.scsi0 | split(",")[-1]')
+
+      desired_size="${var.template_vm_disk_size}"
+
+      if [ "$current_size" != "$desired_size" ]; then
+        echo "Resizing disk..."
+        curl -X PUT --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+             --header "Content-Type: application/json" \
+             --data '{"disk": "scsi0", "size": "+${var.template_vm_disk_size}"}' \
+             "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/resize"
+      else
+        echo "Disk already at desired size. Skipping resize."
+      fi
     EOT
   }
 }
@@ -108,48 +135,59 @@ resource "null_resource" "start_vm" {
 
   provisioner "local-exec" {
     command = <<EOT
-        # Check if the VM is running using Proxmox API
-        vm_status=$(curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=c48784ac-fdb1-40d5-a86e-281c32bc0eb6" \
-          "https://proxmox.local:8006/api2/json/nodes/proxmox/qemu/9002/status/current" \
-          | jq -r '.data.status')
+      vm_status=$(curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+        "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/status/current" \
+        | jq -r '.data.status')
 
-        if [ "$vm_status" != "running" ]; then
-          echo "VM is not running. Waiting for VM to start..."
-          exit 1
-        fi
-
-        # Check SSH connectivity with extended retries
-        for i in $(seq 1 20); do
-          echo "Attempt $i: Checking SSH connectivity..."
-          nc -z -w 5 192.168.1.101 22 && echo "VM is SSH-ready" && exit 0
-          sleep 10
-        done
-
-        echo "VM is not SSH-ready after 20 attempts. Exiting with error."
-        exit 1
-  EOT
+      if [ "$vm_status" != "running" ]; then
+        echo "Starting VM..."
+        curl -X POST --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+             "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/status/start"
+      else
+        echo "VM is already running. Skipping start."
+      fi
+    EOT
   }
 }
 
 
 resource "null_resource" "check_ssh_ready" {
   depends_on = [null_resource.start_vm]
+
   provisioner "local-exec" {
     command = <<EOT
-      # Check if the VM is running using Proxmox API
-      vm_status=$(curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
-        "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/status/current" \
-        | jq -r '.data.status')
+      # Function to check the VM status
+      check_vm_status() {
+        curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+          "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/status/current" \
+          | jq -r '.data.status'
+      }
 
-      if [ "$vm_status" != "running" ]; then
-        echo "VM is not running. Waiting for VM to start..."
-        exit 1
-      fi
+      # Wait for the VM to reach the "running" state
+      attempt=1
+      while [ $attempt -le 20 ]; do
+        vm_status=$(check_vm_status)
+        if [ "$vm_status" = "running" ]; then
+          echo "VM is running."
+          break
+        fi
+
+        if [ $attempt -eq 20 ]; then
+          echo "VM did not start after 20 attempts. Exiting."
+          exit 1
+        fi
+
+        echo "VM is not running yet. Attempt $attempt. Retrying in 10 seconds..."
+        attempt=$((attempt + 1))
+        sleep 10
+      done
 
       # Check SSH connectivity
-      for i in {1..10}; do
+      attempt=1
+      while [ $attempt -le 10 ]; do
         nc -z -w 2 ${var.template_vm_ip} 22 && echo "VM is SSH-ready" && exit 0
-        echo "Waiting for SSH to be ready... Attempt $i"
+        echo "Waiting for SSH to be ready... Attempt $attempt"
+        attempt=$((attempt + 1))
         sleep 5
       done
 
@@ -172,18 +210,18 @@ resource "null_resource" "install_qemu_guest_agent" {
   provisioner "remote-exec" {
     inline = [
       # Update the package lists
-      "if command -v apt-get &> /dev/null; then apt-get update -y; fi",
-      "if command -v yum &> /dev/null; then yum makecache -y; fi",
+      "if command -v sudo apt-get &> /dev/null; then sudo apt-get update -y; fi",
+      "if command -v sudo yum &> /dev/null; then sudo yum makecache -y; fi",
 
       # Install qemu-guest-agent based on the package manager
-      "if command -v apt-get &> /dev/null; then apt-get install -y qemu-guest-agent; fi",
-      "if command -v yum &> /dev/null; then yum install -y qemu-guest-agent; fi",
+      "if command -v sudo apt-get &> /dev/null; then sudo apt-get install -y qemu-guest-agent; fi",
+      "if command -v sudo yum &> /dev/null; then sudo yum install -y qemu-guest-agent; fi",
 
       # Start the service
-      "systemctl start qemu-guest-agent || echo 'Service already started'",
+      "sudo systemctl start qemu-guest-agent || echo 'Service already started'",
 
       # Enable the service to autostart
-      "systemctl enable qemu-guest-agent || echo 'Service already enabled'"
+      "sudo systemctl enable qemu-guest-agent || echo 'Service already enabled'"
     ]
   }
 }
@@ -193,27 +231,34 @@ resource "null_resource" "stop_vm" {
 
   provisioner "local-exec" {
     command = <<EOT
-      # Stop the VM using Proxmox API
       curl -X POST --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
-           "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/status/stop"
+            "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/status/stop"
 
-      # Wait until the VM is completely stopped
-      for i in {1..20}; do
-        vm_status=$(curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+      # Function to check the VM status
+      check_vm_status() {
+        curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
           "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/status/current" \
-          | jq -r '.data.status')
+          | jq -r '.data.status'
+      }
 
-        if [ "$vm_status" == "stopped" ]; then
+      # Wait for the VM to reach the "stopped" state
+      attempt=1
+      while [ $attempt -le 20 ]; do
+        vm_status=$(check_vm_status)
+        if [ "$vm_status" = "stopped" ]; then
           echo "VM is stopped."
-          exit 0
+          break
         fi
 
-        echo "Waiting for VM to stop... Attempt $i"
-        sleep 5
-      done
+        if [ $attempt -eq 20 ]; then
+          echo "VM have not stopped yet after 20 attempts. Exiting."
+          exit 1
+        fi
 
-      echo "VM did not stop after 20 attempts. Exiting with error."
-      exit 1
+        echo "VM is still running. Attempt $attempt. Retrying in 10 seconds..."
+        attempt=$((attempt + 1))
+        sleep 10
+      done
     EOT
   }
 }
