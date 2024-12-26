@@ -1,0 +1,11 @@
+{
+  "data": [
+    {
+      "volid": "local:iso/jammy-server-cloudimg-amd64.img",
+      "content": "iso",
+      "format": "iso",
+      "size": 665835520,
+      "ctime": 1735210560
+    }
+  ]
+}
