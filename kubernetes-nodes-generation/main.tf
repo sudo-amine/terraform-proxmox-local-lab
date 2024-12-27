@@ -276,3 +276,69 @@ resource "null_resource" "convert_to_template" {
     EOT
   }
 }
+
+
+# # Create the VM with Cloud-Init
+# resource "proxmox_vm_qemu" "cloned_vm" {
+#   depends_on  = [null_resource.convert_to_template]
+#   name        = var.cloned_vm_name
+#   target_node = var.proxmox_node
+#   desc        = "Ubuntu Cloud Template created with Terraform"
+#   vmid        = var.cloned_vm_id
+#   # Set boot order to prioritize the imported disk
+#   boot     = "order=scsi0;net0"
+#   bootdisk = "scsi0"
+#   # Cloud-Init configuration
+#   qemu_os = "l26" # Linux 2.6/3.x/4.x/5.x
+#   sshkeys = local.ssh_public_key
+#   ciuser  = "sudo-amine"
+#   # Ensure the VM shuts down after provisioning for conversion to template
+#   ipconfig0 = "ip=192.168.1.100/24,gw=192.168.1.1" # Replace with your network settings
+
+#   vm_state = "stopped"
+
+#   # Wait for Cloud-Init
+#   ci_wait = 30
+
+
+#   # VM hardware configuration
+#   memory  = 2048
+#   cores   = 4
+#   sockets = 1
+#   onboot  = false
+#   agent   = 1
+#   scsihw  = "virtio-scsi-pci"
+
+#   # Attach the imported disk as SCSI
+#   disk {
+#     type    = "disk"
+#     storage = var.local_storage_pool_lvm
+#     size    = var.cloned_vm_disk_size # Adjust size as needed
+#     slot    = "scsi0"
+#   }
+
+#   # Add the Cloud-Init disk
+#   disk {
+#     type    = "cloudinit"
+#     storage = var.local_storage_pool_lvm
+#     slot    = "ide2"
+#   }
+
+
+
+#   # Networking configuration
+#   network {
+#     model  = "virtio"
+#     bridge = "vmbr0" # Replace with your network bridge
+#     id     = 0
+#   }
+
+#   serial {
+#     id   = 0
+#     type = "socket"
+#   }
+
+# }
+
+
+
