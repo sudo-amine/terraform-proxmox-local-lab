@@ -20,8 +20,6 @@ resource "null_resource" "check_and_upload" {
   }
 }
 
-
-
 resource "proxmox_vm_qemu" "template_vm" {
   depends_on = [null_resource.check_and_upload]
 
@@ -56,8 +54,8 @@ resource "proxmox_vm_qemu" "template_vm" {
     id   = 0
     type = "socket"
   }
-}
 
+}
 
 # Resource to import the disk remotely using qm importdisk
 resource "null_resource" "import_disk" {
@@ -71,7 +69,7 @@ resource "null_resource" "import_disk" {
 
   provisioner "remote-exec" {
     inline = [
-      "disk_exists=$(ls /var/lib/vz/images/${var.template_vm_id} | grep 'vm-${var.template_vm_id}-disk-0.raw')",
+      "disk_exists=$(pvesm list ${var.local_storage_pool_lvm} | grep '${var.template_vm_id}-disk-0')",
       "if [ -z \"$disk_exists\" ]; then",
       "  echo 'Disk does not exist. Importing...';",
       "  qm importdisk ${var.template_vm_id} /var/lib/vz/template/iso/jammy-server-cloudimg-amd64.img ${var.local_storage_pool_lvm};",
@@ -92,7 +90,7 @@ resource "null_resource" "attach_disk" {
         "https://${var.proxmox_host}:8006/api2/json/nodes/${var.proxmox_node}/qemu/${var.template_vm_id}/config" \
         | jq -r '.data.scsi0')
 
-      if [ "$attached_disk" != "${var.local_storage_pool_lvm}:vm-${var.template_vm_id}-disk-0" ]; then
+      if [ "$attached_disk" != *"${var.local_storage_pool_lvm}:vm-${var.template_vm_id}-disk-0"* ]; then
         echo "Attaching disk..."
         curl -X PUT --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
              --header "Content-Type: application/json" \
@@ -150,7 +148,6 @@ resource "null_resource" "start_vm" {
   }
 }
 
-
 resource "null_resource" "check_ssh_ready" {
   depends_on = [null_resource.start_vm]
 
@@ -197,7 +194,6 @@ resource "null_resource" "check_ssh_ready" {
   }
 }
 
-
 resource "null_resource" "install_qemu_guest_agent" {
   depends_on = [null_resource.check_ssh_ready]
 
@@ -208,7 +204,7 @@ resource "null_resource" "install_qemu_guest_agent" {
   }
 
   provisioner "remote-exec" {
-    inline = [
+    inline = [      
       # Update the package lists
       "if command -v sudo apt-get &> /dev/null; then sudo apt-get update -y; fi",
       "if command -v sudo yum &> /dev/null; then sudo yum makecache -y; fi",
@@ -262,8 +258,6 @@ resource "null_resource" "stop_vm" {
     EOT
   }
 }
-
-
 
 # Null resource to convert the VM into a template using the API
 resource "null_resource" "convert_to_template" {
