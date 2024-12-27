@@ -55,6 +55,10 @@ resource "proxmox_vm_qemu" "template_vm" {
     type = "socket"
   }
 
+  lifecycle {
+    ignore_changes = all
+  }
+
 }
 
 # Resource to import the disk remotely using qm importdisk

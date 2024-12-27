@@ -8,7 +8,7 @@ local_storage_pool_lvm = "local-lvm-2"
 
 template_vm_id        = "9002"
 template_vm_name      = "vm-template"
-template_vm_disk_size = "10G"
+template_vm_disk_size = "8G"
 template_vm_ip        = "192.168.1.101"
 template_user         = "sudo-amine"
 
