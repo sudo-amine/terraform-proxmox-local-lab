@@ -29,6 +29,14 @@ nodes = {
   }
 }
 
+template_vm = {
+  id        = "9001"
+  name      = "vm-template"
+  disk_size = "8G"
+  ip        = "192.168.1.101"
+  user      = "sudo-amine"
+}
+
 network = {
   bridge         = "vmbr0"
   gateway        = "192.168.1.1"

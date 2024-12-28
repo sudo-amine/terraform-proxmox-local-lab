@@ -8,6 +8,17 @@ variable "proxmox" {
     vault_secret_path = string
   })
 }
+
+variable "template_vm" {
+  description = "Template VM configuration"
+  type = object({
+    id        = string
+    name      = string
+    disk_size = string
+    ip        = string
+    user      = string
+  })
+}
 variable "nodes" {
   description = "Configuration for control plane and worker nodes"
   type = object({
