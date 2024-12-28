@@ -21,7 +21,7 @@ nodes = {
     names_prefix   = "control-plane-"
     ip_range_start = "130"
     disk_size      = "20G" # Matches the disk size in the resource
-    cores          = 2
+    cores          = 1
     memory         = 2048
     user           = "sudo-amine"
   }
