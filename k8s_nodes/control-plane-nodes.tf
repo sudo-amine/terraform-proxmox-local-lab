@@ -1,5 +1,4 @@
 resource "proxmox_vm_qemu" "control_plane" {
-  depends_on  = [null_resource.convert_to_template]
   vm_state    = "stopped"
   count       = var.nodes.control_plane.count
   vmid        = var.nodes.control_plane.first_id + count.index + 1

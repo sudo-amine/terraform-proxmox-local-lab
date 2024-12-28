@@ -1,5 +1,4 @@
 resource "proxmox_vm_qemu" "worker_nodes" {
-  depends_on  = [null_resource.convert_to_template]  
   count       = var.nodes.workers.count
   vmid        = "${var.nodes.workers.first_id + count.index + 1}"
   name        = "${var.nodes.workers.names_prefix}${count.index + 1}"
