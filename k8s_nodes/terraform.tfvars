@@ -6,14 +6,6 @@ proxmox = {
   vault_secret_path = "proxmox"
 }
 
-template_vm = {
-  id        = "9001"
-  name      = "vm-template"
-  disk_size = "8G"
-  ip        = "192.168.1.101"
-  user      = "sudo-amine"
-}
-
 nodes = {
   control_plane = {
     count          = 3
@@ -51,5 +43,3 @@ storage = {
 
 vault_secret_path = "proxmox"
 
-image_name = "jammy-server-cloudimg-amd64.img"
-image_url  = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"

@@ -20,32 +20,6 @@ variable "template_vm" {
   })
 }
 
-variable "nodes" {
-  description = "Configuration for control plane and worker nodes"
-  type = object({
-    control_plane = object({
-      count          = number
-      first_id       = string
-      names_prefix   = string
-      ip_range_start = number
-      disk_size      = string
-      cores          = number # Added to configure cores
-      memory         = number # Added to configure memory
-      user           = string # Matches template_vm.user for consistency
-    })
-    workers = object({
-      count          = number
-      first_id       = string
-      names_prefix   = string
-      ip_range_start = number
-      disk_size      = string
-      cores          = number # Added to configure cores
-      memory         = number # Added to configure memory
-      user           = string # Matches template_vm.user for consistency
-    })
-  })
-}
-
 variable "storage" {
   description = "Storage configuration"
   type = object({
