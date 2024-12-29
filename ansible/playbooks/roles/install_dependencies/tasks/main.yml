@@ -23,7 +23,6 @@
 
 - name: Load kernel modules
   ansible.builtin.shell: |
-    set -o pipefail
     modprobe overlay
     modprobe br_netfilter
   changed_when: false

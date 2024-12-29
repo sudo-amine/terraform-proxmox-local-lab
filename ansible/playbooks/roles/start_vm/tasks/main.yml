@@ -22,13 +22,26 @@
     state: current
   register: vm_status
   until: vm_status.status == "running"
-  retries: 10
-  delay: 5
+  retries: "{{ vm_status_retries }}"
+  delay: "{{ vm_status_delay }}"
   no_log: true
 
 - name: Confirm VM Running Status
   ansible.builtin.debug:
     msg: "VM {{ vm_id }} is now in the state: {{ vm_status.status }}."
+
+- name: Fail if VM did not reach running state
+  ansible.builtin.fail:
+    msg: "VM {{ vm_id }} did not reach 'running' state after multiple retries."
+  when: vm_status.status != "running"
+
+- name: Wait for SSH to be Ready
+  ansible.builtin.wait_for:
+    host: "{{ groups['vm'][0] }}"
+    port: 22
+    timeout: "{{ ssh_wait_timeout }}"  # Adjust the timeout as needed
+    state: started
+  delegate_to: localhost
 
 - name: Update SSH Fingerprint in Known Hosts
   ansible.builtin.shell: |

@@ -188,7 +188,7 @@ resource "null_resource" "run_ansible" {
   depends_on = [null_resource.resize_disk]
 
   triggers = {
-    ansible_inventory_id = local_file.ansible_inventory.id
+    always_run = timestamp() # This triggers the resource to run on every apply
   }
 
   provisioner "local-exec" {
@@ -212,19 +212,19 @@ resource "null_resource" "run_ansible" {
 
 # Null resource to convert the VM into a template using the API
 
-resource "null_resource" "convert_to_template" {
-  depends_on = [null_resource.run_ansible]
+# resource "null_resource" "convert_to_template" {
+#   depends_on = [null_resource.run_ansible]
 
-  triggers = {
-    instance_id = proxmox_vm_qemu.template_vm.id
-  }
+#   triggers = {
+#     instance_id = proxmox_vm_qemu.template_vm.id
+#   }
 
-  provisioner "local-exec" {
-    command = <<EOT
-      # Convert the VM into a template using Proxmox API
-      curl -X POST --header "Authorization: PVEAPIToken=${var.proxmox.api_user}!${var.proxmox.token_id}=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
-           "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/template" \
-           --silent --show-error --write-out "%%{http_code}"
-    EOT
-  }
-}
+#   provisioner "local-exec" {
+#     command = <<EOT
+#       # Convert the VM into a template using Proxmox API
+#       curl -X POST --header "Authorization: PVEAPIToken=${var.proxmox.api_user}!${var.proxmox.token_id}=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+#            "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/template" \
+#            --silent --show-error --write-out "%%{http_code}"
+#     EOT
+#   }
+# }
