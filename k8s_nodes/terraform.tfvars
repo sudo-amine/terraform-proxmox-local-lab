@@ -37,17 +37,5 @@ template_vm = {
   user      = "sudo-amine"
 }
 
-network = {
-  bridge         = "vmbr0"
-  gateway        = "192.168.1.1"
-  subnet         = "24"
-  gateway_subnet = "192.168.1.0/24"
-}
-
-storage = {
-  local = "local"
-  main  = "local-lvm-2"
-}
-
 vault_secret_path = "proxmox"
 

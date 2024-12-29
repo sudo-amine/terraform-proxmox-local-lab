@@ -40,13 +40,6 @@ variable "network" {
   })
 }
 
-locals {
-  ssh_public_key = file("~/.ssh/id_rsa.pub") # Read the SSH public key from the file
-}
-
-locals {
-  ssh_private_key = file("~/.ssh/id_rsa") # Read the SSH public key from the file
-}
 
 variable "ssh_public_key_file" {
   type = string
@@ -55,6 +48,27 @@ variable "ssh_public_key_file" {
 variable "ssh_private_key_file" {
   type = string
 }
+
+variable "ssh_public_key_path" {
+  description = "Path to the SSH public key"
+  type        = string
+  default     = "~/.ssh/id_rsa.pub" # Provide a sensible default
+}
+
+locals {
+  ssh_public_key = file(var.ssh_public_key_path)
+}
+
+variable "ssh_private_key_path" {
+  description = "Path to the SSH private key"
+  type        = string
+  default     = "~/.ssh/id_rsa" # Provide a sensible default
+}
+
+locals {
+  ssh_private_key = file(var.ssh_private_key_path)
+}
+
 
 variable "vault_secret_path" {
   description = "Path to the Vault secret containing Proxmox API token"

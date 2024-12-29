@@ -87,7 +87,7 @@ resource "proxmox_vm_qemu" "template_vm" {
 resource "local_file" "ansible_inventory" {
   content = <<EOT
   [vm]
-  ${var.template_vm.ip} ansible_user=${var.template_vm.user} ansible_ssh_private_key_file=${var.ssh_private_key_file} ansible_become=true
+  ${var.template_vm.ip} ansible_user=${var.template_vm.user} ansible_ssh_private_key_file=${var.ssh_private_key_path} ansible_become=true
 
   [all:vars]
   proxmox_node=${var.proxmox.node}

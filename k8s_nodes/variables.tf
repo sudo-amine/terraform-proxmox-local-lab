@@ -51,6 +51,10 @@ variable "storage" {
     local = string
     main  = string
   })
+  default = {
+    local = "local"
+    main  = "local-lvm-2"
+  }
 }
 
 variable "network" {
@@ -61,10 +65,22 @@ variable "network" {
     subnet         = string
     gateway_subnet = string
   })
+  default = {
+    bridge         = "vmbr0"
+    gateway        = "192.168.1.1"
+    subnet         = "192.168.1.0/24"
+    gateway_subnet = "192.168.1.0/24"
+  }
+}
+
+variable "ssh_key_path" {
+  description = "Path to the SSH public key"
+  type        = string
+  default     = "~/.ssh/id_rsa.pub" # Provide a sensible default
 }
 
 locals {
-  ssh_public_key = file("~/.ssh/id_rsa.pub") # Read the SSH public key from the file
+  ssh_public_key = file(var.ssh_key_path)
 }
 
 variable "vault_secret_path" {
