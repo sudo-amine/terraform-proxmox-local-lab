@@ -1,3 +1,4 @@
+---
 - name: Start Proxmox VM
   community.general.proxmox_kvm:
     api_host: "{{ proxmox_host }}"
@@ -26,7 +27,7 @@
   no_log: true
 
 - name: Confirm VM Running Status
-  debug:
+  ansible.builtin.debug:
     msg: "VM {{ vm_id }} is now in the state: {{ vm_status.status }}."
 
 - name: Update SSH Fingerprint in Known Hosts

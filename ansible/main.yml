@@ -1,5 +1,4 @@
 ---
-
 - name: Start VM
   import_playbook: playbooks/start_template_vm.yml
 

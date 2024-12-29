@@ -1,3 +1,4 @@
+---
 - name: Install and Configure VM
   hosts: vm
   gather_facts: true

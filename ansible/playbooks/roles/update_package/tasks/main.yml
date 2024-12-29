@@ -1,11 +1,12 @@
+---
 - name: Update apt cache (Debian-based)
   ansible.builtin.apt:
-    update_cache: yes
+    update_cache: true
   when: ansible_facts['os_family'] == "Debian"
 
 - name: Update yum cache (Red Hat-based)
-  ansible.builtin.yum:
-    update_cache: yes
+  ansible.builtin.dnf:
+    update_cache: true
   when: ansible_facts['os_family'] == "RedHat"
 
 - name: Install required packages
