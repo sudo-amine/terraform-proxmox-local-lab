@@ -22,9 +22,9 @@
     state: current
   register: vm_status
   until: vm_status.status == "running"
-  retries: "{{ vm_status_retries }}"
-  delay: "{{ vm_status_delay }}"
-  no_log: true
+  retries: "{{ start_vm_status_retries }}"
+  delay: "{{ start_vm_status_delay }}"
+  no_log: false
 
 - name: Confirm VM Running Status
   ansible.builtin.debug:
@@ -39,7 +39,7 @@
   ansible.builtin.wait_for:
     host: "{{ groups['vm'][0] }}"
     port: 22
-    timeout: "{{ ssh_wait_timeout }}"  # Adjust the timeout as needed
+    timeout: "{{ start_vm_ssh_wait_timeout }}"  # Adjust the timeout as needed
     state: started
   delegate_to: localhost
 

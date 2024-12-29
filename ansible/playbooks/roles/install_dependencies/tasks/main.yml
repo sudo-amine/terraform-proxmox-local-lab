@@ -13,19 +13,13 @@
     state: present
 
 # Configure kernel modules and load them
-- name: Set up required kernel modules
-  ansible.builtin.copy:
-    dest: /etc/modules-load.d/k8s.conf
-    content: |
-      overlay
-      br_netfilter
-    mode: "0644"
-
-- name: Load kernel modules
-  ansible.builtin.shell: |
-    modprobe overlay
-    modprobe br_netfilter
-  changed_when: false
+- name: Ensure kernel modules are loaded
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - overlay
+    - br_netfilter
 
 # Configure kernel parameters and apply them
 - name: Set required kernel parameters
@@ -38,8 +32,13 @@
     mode: "0644"
 
 - name: Apply kernel parameters
-  ansible.builtin.command: sysctl --system
-  changed_when: false
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+  loop:
+    - { name: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+    - { name: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+    - { name: 'net.ipv4.ip_forward', value: '1' }
 
 # Install container runtime (containerd)
 - name: Install containerd
@@ -47,13 +46,30 @@
     name: containerd
     state: present
 
-- name: Configure containerd to use systemd cgroups
-  ansible.builtin.shell: |
-    set -o pipefail
-    mkdir -p /etc/containerd
-    containerd config default | sed 's/SystemdCgroup = false/SystemdCgroup = true/' > /etc/containerd/config.toml
-  args:
-    creates: /etc/containerd/config.toml
+- name: Ensure /etc/containerd directory exists
+  ansible.builtin.file:
+    path: /etc/containerd
+    state: directory
+    mode: "0755"
+
+- name: Generate default containerd configuration
+  ansible.builtin.command:
+    cmd: containerd config default
+  register: containerd_config
+  changed_when: false
+
+- name: Save default containerd configuration to file
+  ansible.builtin.copy:
+    dest: /etc/containerd/config.toml
+    content: "{{ containerd_config.stdout }}"
+    mode: "0644"
+    force: true
+
+- name: Ensure SystemdCgroup is set to true
+  ansible.builtin.replace:
+    path: /etc/containerd/config.toml
+    regexp: '^(\s*)SystemdCgroup\s*=\s*false'
+    replace: '\1SystemdCgroup = true'
 
 - name: Restart containerd
   ansible.builtin.service:
@@ -61,29 +77,41 @@
     state: restarted
     enabled: true
 
-# Download Kubernetes public signing key
+- name: Ensure /etc/apt/keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Get Kubernetes stable release version
+  ansible.builtin.uri:
+    url: https://dl.k8s.io/release/stable.txt
+    return_content: true
+  register: kubernetes_version
+
+- name: Extract Kubernetes major.minor version
+  ansible.builtin.set_fact:
+    k8s_version: "{{ kubernetes_version.content.split('.')[0] }}.{{ kubernetes_version.content.split('.')[1] }}"
+
 - name: Download Kubernetes public signing key
-  ansible.builtin.shell: |
-    set -o pipefail
-    mkdir -p /etc/apt/keyrings
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/$(curl -L -s \
-    https://dl.k8s.io/release/stable.txt | \
-    awk 'BEGIN { FS="." } { printf "%s.%s", $1, $2 }')/deb/Release.key \
-    | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  ansible.builtin.get_url:
+    url: "https://pkgs.k8s.io/core:/stable:/{{ k8s_version }}/deb/Release.key"
+    dest: /tmp/kubernetes-release.key
+    mode: "0644"
+
+- name: Convert Kubernetes public signing key to GPG format
+  ansible.builtin.command:
+    cmd: "gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg /tmp/kubernetes-release.key"
   args:
     creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
-# Add Kubernetes apt repository
 - name: Add Kubernetes apt repository
-  ansible.builtin.shell: |
-    set -o pipefail
-    echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \
-    https://pkgs.k8s.io/core:/stable:/$(curl -L -s \
-    https://dl.k8s.io/release/stable.txt | \
-    awk 'BEGIN { FS="." } { printf "%s.%s", $1, $2 }')/deb/ /" >\
-     /etc/apt/sources.list.d/kubernetes.list
-  args:
-    creates: /etc/apt/sources.list.d/kubernetes.list
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg]
+      https://pkgs.k8s.io/core:/stable:/{{ k8s_version }}/deb/ /
+    state: present
+    filename: kubernetes
 
 # Update apt package index and install Kubernetes tools
 - name: Install kubelet, kubeadm, and kubectl
@@ -99,29 +127,33 @@
   ansible.builtin.command: apt-mark hold kubelet kubeadm kubectl
   changed_when: false
 
-- name: Configure crictl
-  ansible.builtin.command: |
-    crictl config --set runtime-endpoint=unix:///run/containerd/containerd.sock --set image-endpoint=unix:///run/containerd/containerd.sock
-  changed_when: false
+- name: Configure crictl runtime endpoint
+  ansible.builtin.blockinfile:
+    path: /etc/crictl.yaml
+    block: |
+      runtime-endpoint: unix:///run/containerd/containerd.sock
+      image-endpoint: unix:///run/containerd/containerd.sock
+    create: true
+    mode: "0644"
 
 # Detect the primary IP and set it as an environment variable
-- name: Detect primary IP address
-  ansible.builtin.shell: |
-    set -o pipefail ip -4 route get 1 | awk '{print $7; exit}'
-  register: primary_ip
-  changed_when: false
+- name: Gather Ansible facts
+  ansible.builtin.setup:
+    gather_subset:
+      - network
 
 - name: Set PRIMARY_IP environment variable
-  ansible.builtin.lineinfile:
+  ansible.builtin.blockinfile:
     path: /etc/environment
-    line: "PRIMARY_IP={{ primary_ip.stdout }}"
+    block: |
+      PRIMARY_IP={{ ansible_default_ipv4.address }}
     create: true
     mode: "0644"
 
 # Set extra arguments for kubelet
-- name: Configure kubelet extra args
-  ansible.builtin.copy:
-    dest: /etc/default/kubelet
-    content: |
-      KUBELET_EXTRA_ARGS='--node-ip {{ primary_ip.stdout }}'
+- name: Set kubelet extra args
+  ansible.builtin.lineinfile:
+    path: /etc/default/kubelet
+    line: "KUBELET_EXTRA_ARGS='--node-ip {{ ansible_default_ipv4.address }}'"
+    create: true
     mode: "0644"
