@@ -12,6 +12,14 @@
       - curl
     state: present
 
+- name: Ensure persistent kernel modules configuration
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k8s.conf
+    content: |
+      overlay
+      br_netfilter
+    mode: "0644"
+
 # Configure kernel modules and load them
 - name: Ensure kernel modules are loaded
   community.general.modprobe:
@@ -36,9 +44,9 @@
     name: "{{ item.name }}"
     value: "{{ item.value }}"
   loop:
-    - { name: 'net.bridge.bridge-nf-call-iptables', value: '1' }
-    - { name: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
-    - { name: 'net.ipv4.ip_forward', value: '1' }
+    - { name: "net.bridge.bridge-nf-call-iptables", value: "1" }
+    - { name: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+    - { name: "net.ipv4.ip_forward", value: "1" }
 
 # Install container runtime (containerd)
 - name: Install containerd
