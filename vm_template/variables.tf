@@ -6,6 +6,8 @@ variable "proxmox" {
     local_storage     = string
     local_storage_lvm = string
     vault_secret_path = string
+    api_user          = string
+    token_id          = string
   })
 }
 
@@ -42,15 +44,27 @@ locals {
   ssh_public_key = file("~/.ssh/id_rsa.pub") # Read the SSH public key from the file
 }
 
+locals {
+  ssh_private_key = file("~/.ssh/id_rsa") # Read the SSH public key from the file
+}
+
+variable "ssh_public_key_file" {
+  type = string
+}
+
+variable "ssh_private_key_file" {
+  type = string
+}
+
 variable "vault_secret_path" {
   description = "Path to the Vault secret containing Proxmox API token"
   type        = string
 }
 
 variable "image_name" {
-  type        = string
+  type = string
 }
 
 variable "image_url" {
-  type        = string
+  type = string
 }

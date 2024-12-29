@@ -2,7 +2,7 @@ resource "null_resource" "check_and_upload" {
   provisioner "local-exec" {
     command = <<EOT
       # Check if the image already exists in Proxmox storage
-      existing_file=$(curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+      existing_file=$(curl -s --header "Authorization: PVEAPIToken=${var.proxmox.api_user}!${var.proxmox.token_id}=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
         "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/storage/${var.storage.local}/content" \
         | jq -r '.data[] | select(.volid | endswith("${var.image_name}")) | .volid')
 
@@ -22,7 +22,7 @@ resource "null_resource" "check_and_upload" {
 
         # Upload the image to Proxmox storage
         echo "Uploading image to Proxmox storage..."
-        curl -X POST --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+        curl -X POST --header "Authorization: PVEAPIToken=${var.proxmox.api_user}!${var.proxmox.token_id}=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
              --header "Content-Type: multipart/form-data" \
              --form "content=iso" \
              --form "filename=@/tmp/${var.image_name}" \
@@ -41,7 +41,6 @@ resource "null_resource" "check_and_upload" {
     EOT
   }
 }
-
 
 resource "proxmox_vm_qemu" "template_vm" {
   depends_on = [null_resource.check_and_upload]
@@ -84,6 +83,23 @@ resource "proxmox_vm_qemu" "template_vm" {
 
 }
 
+# Generate the Dynamic Ansible Inventory File
+resource "local_file" "ansible_inventory" {
+  content = <<EOT
+  [vm]
+  ${var.template_vm.ip} ansible_user=${var.template_vm.user} ansible_ssh_private_key_file=${var.ssh_private_key_file} ansible_become=true
+
+  [all:vars]
+  proxmox_node=${var.proxmox.node}
+  proxmox_host=${var.proxmox.host}
+  proxmox_api_user=${var.proxmox.api_user}
+  proxmox_api_token_id=${var.proxmox.token_id}
+  vm_id=${var.template_vm.id}
+  EOT
+
+  filename = "/home/sudo-amine/terraform-k8s-cluster/terraform-proxmox-local-lab/ansible/inventory/inventory.ini"
+}
+
 # Resource to import the disk remotely using qm importdisk
 resource "null_resource" "import_disk" {
   depends_on = [null_resource.check_and_upload, proxmox_vm_qemu.template_vm]
@@ -121,13 +137,13 @@ resource "null_resource" "attach_disk" {
 
   provisioner "local-exec" {
     command = <<EOT
-      attached_disk=$(curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+      attached_disk=$(curl -s --header "Authorization: PVEAPIToken=${var.proxmox.api_user}!${var.proxmox.token_id}=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
         "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/config" \
         | jq -r '.data.scsi0')
 
       if [ "$attached_disk" != *"${var.storage.main}:vm-${var.template_vm.id}-disk-0"* ]; then
         echo "Attaching disk..."
-        curl -X PUT --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+        curl -X PUT --header "Authorization: PVEAPIToken=${var.proxmox.api_user}!${var.proxmox.token_id}=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
              --header "Content-Type: application/json" \
              --data '{"scsi0": "${var.storage.main}:vm-${var.template_vm.id}-disk-0"}' \
              "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/config"
@@ -148,7 +164,7 @@ resource "null_resource" "resize_disk" {
 
   provisioner "local-exec" {
     command = <<EOT
-      current_size=$(curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+      current_size=$(curl -s --header "Authorization: PVEAPIToken=${var.proxmox.api_user}!${var.proxmox.token_id}=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
         "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/config" \
         | jq -r '.data.scsi0 | split(",")[-1]')
 
@@ -156,7 +172,7 @@ resource "null_resource" "resize_disk" {
 
       if [ "$current_size" != "$desired_size" ]; then
         echo "Resizing disk..."
-        curl -X PUT --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+        curl -X PUT --header "Authorization: PVEAPIToken=${var.proxmox.api_user}!${var.proxmox.token_id}=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
              --header "Content-Type: application/json" \
              --data '{"disk": "scsi0", "size": "+${var.template_vm.disk_size}"}' \
              "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/resize"
@@ -167,167 +183,48 @@ resource "null_resource" "resize_disk" {
   }
 }
 
-resource "null_resource" "start_vm" {
+# Null Resource to Run Ansible
+resource "null_resource" "run_ansible" {
   depends_on = [null_resource.resize_disk]
 
   triggers = {
-    instance_id = proxmox_vm_qemu.template_vm.id
+    ansible_inventory_id = local_file.ansible_inventory.id
   }
 
   provisioner "local-exec" {
     command = <<EOT
-      vm_status=$(curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
-        "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/status/current" \
-        | jq -r '.data.status')
+      echo "Changing directory to the Ansible project directory..."
+      cd /home/sudo-amine/terraform-k8s-cluster/terraform-proxmox-local-lab/ansible || exit 1
 
-      if [ "$vm_status" != "running" ]; then
-        echo "Starting VM..."
-        curl -X POST --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
-             "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/status/start"
+      echo "Running Ansible playbook to configure the VM using the virtual environment..."
+      ~/venv/bin/ansible-playbook -i inventory/inventory.ini main.yml
+
+      # Check the result of the playbook execution
+      if [ $? -eq 0 ]; then
+        echo "Ansible playbook executed successfully."
       else
-        echo "VM is already running. Skipping start."
+        echo "Ansible playbook failed. Check logs for details." >&2
+        exit 1
       fi
     EOT
   }
 }
 
-resource "null_resource" "check_ssh_ready" {
-  depends_on = [null_resource.start_vm]
-
-  triggers = {
-    instance_id = proxmox_vm_qemu.template_vm.id
-  }
-
-  provisioner "local-exec" {
-    command = <<EOT
-      # Function to check the VM status
-      check_vm_status() {
-        curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
-          "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/status/current" \
-          | jq -r '.data.status'
-      }
-
-      # Wait for the VM to reach the "running" state
-      attempt=1
-      while [ $attempt -le 20 ]; do
-        vm_status=$(check_vm_status)
-        if [ "$vm_status" = "running" ]; then
-          echo "VM is running."
-          break
-        fi
-
-        if [ $attempt -eq 20 ]; then
-          echo "VM did not start after 20 attempts. Exiting."
-          exit 1
-        fi
-
-        echo "VM is not running yet. Attempt $attempt. Retrying in 10 seconds..."
-        attempt=$((attempt + 1))
-        sleep 10
-      done
-
-      # Check SSH connectivity
-      attempt=1
-      while [ $attempt -le 10 ]; do
-        nc -z -w 2 ${var.template_vm.ip} 22 && echo "VM is SSH-ready" && exit 0
-        echo "Waiting for SSH to be ready... Attempt $attempt"
-        attempt=$((attempt + 1))
-        sleep 5
-      done
-
-      echo "VM is not SSH-ready after 10 attempts."
-      exit 1
-    EOT
-  }
-}
-
-resource "null_resource" "install_qemu_guest_agent" {
-  depends_on = [null_resource.check_ssh_ready]
-
-  triggers = {
-    instance_id = proxmox_vm_qemu.template_vm.id
-  }
-
-  connection {
-    type = "ssh"
-    host = var.template_vm.ip
-    user = var.template_vm.user
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      # Update the package lists
-      "if command -v sudo apt-get &> /dev/null; then sudo apt-get update -y; fi",
-      "if command -v sudo yum &> /dev/null; then sudo yum makecache -y; fi",
-
-      # Install qemu-guest-agent based on the package manager
-      "if command -v sudo apt-get &> /dev/null; then sudo apt-get install -y qemu-guest-agent; fi",
-      "if command -v sudo yum &> /dev/null; then sudo yum install -y qemu-guest-agent; fi",
-
-      # Start the service
-      "sudo systemctl start qemu-guest-agent || echo 'Service already started'",
-
-      # Enable the service to autostart
-      "sudo systemctl enable qemu-guest-agent || echo 'Service already enabled'"
-    ]
-  }
-}
-
-resource "null_resource" "stop_vm" {
-  depends_on = [null_resource.install_qemu_guest_agent]
-
-  triggers = {
-    instance_id = proxmox_vm_qemu.template_vm.id
-  }
-
-  provisioner "local-exec" {
-    command = <<EOT
-      curl -X POST --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
-            "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/status/stop"
-
-      # Function to check the VM status
-      check_vm_status() {
-        curl -s --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
-          "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/status/current" \
-          | jq -r '.data.status'
-      }
-
-      # Wait for the VM to reach the "stopped" state
-      attempt=1
-      while [ $attempt -le 20 ]; do
-        vm_status=$(check_vm_status)
-        if [ "$vm_status" = "stopped" ]; then
-          echo "VM is stopped."
-          break
-        fi
-
-        if [ $attempt -eq 20 ]; then
-          echo "VM have not stopped yet after 20 attempts. Exiting."
-          exit 1
-        fi
-
-        echo "VM is still running. Attempt $attempt. Retrying in 10 seconds..."
-        attempt=$((attempt + 1))
-        sleep 10
-      done
-    EOT
-  }
-}
 
 # Null resource to convert the VM into a template using the API
-resource "null_resource" "convert_to_template" {
-  depends_on = [null_resource.stop_vm]
+# resource "null_resource" "convert_to_template" {
+#   depends_on = [null_resource.run_ansible]
 
-  triggers = {
-    instance_id = proxmox_vm_qemu.template_vm.id
-  }
+#   triggers = {
+#     instance_id = proxmox_vm_qemu.template_vm.id
+#   }
 
-  provisioner "local-exec" {
-    command = <<EOT
-      # Convert the VM into a template using Proxmox API
-      curl -X POST --header "Authorization: PVEAPIToken=terraform-prov@pve!tid=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
-           "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/template" \
-           --silent --show-error --write-out "%%{http_code}"
-    EOT
-  }
-}
+#   provisioner "local-exec" {
+#     command = <<EOT
+#       # Convert the VM into a template using Proxmox API
+#       curl -X POST --header "Authorization: PVEAPIToken=${var.proxmox.api_user}!${var.proxmox.token_id}=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+#            "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/template" \
+#            --silent --show-error --write-out "%%{http_code}"
+#     EOT
+#   }
+# }

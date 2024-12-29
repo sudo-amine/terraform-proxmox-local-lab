@@ -4,6 +4,8 @@ proxmox = {
   local_storage     = "local"
   local_storage_lvm = "local-lvm-2"
   vault_secret_path = "proxmox"
+  api_user          = "terraform-prov@pve"
+  token_id          = "tid"
 }
 
 template_vm = {
@@ -25,6 +27,9 @@ storage = {
   local = "local"
   main  = "local-lvm-2"
 }
+
+ssh_public_key_file = "~/.ssh/id_rsa.pub"
+ssh_private_key_file = "~/.ssh/id_rsa"
 
 vault_secret_path = "proxmox"
 
