@@ -1,0 +1,8 @@
+- name: Install and Configure VM
+  hosts: vm
+  gather_facts: true
+  become: true
+  roles:
+    - update_package
+    - install_dependencies
+    - configure_qemu
