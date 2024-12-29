@@ -1,7 +1,0 @@
----
-- name: Stop VM
-  hosts: localhost
-  gather_facts: false
-  roles:
-    - vault_authentication
-    - stop_vm

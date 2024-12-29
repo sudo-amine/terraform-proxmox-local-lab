@@ -1,7 +1,0 @@
----
-- name: Start VM and Configure SSH
-  hosts: localhost
-  gather_facts: false
-  roles:
-    - vault_authentication
-    - start_vm

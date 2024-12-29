@@ -6,6 +6,8 @@ variable "proxmox" {
     local_storage     = string
     local_storage_lvm = string
     vault_secret_path = string
+    api_user          = string
+    token_id          = string
   })
 }
 
@@ -73,15 +75,26 @@ variable "network" {
   }
 }
 
-variable "ssh_key_path" {
+variable "ssh_public_key_path" {
   description = "Path to the SSH public key"
   type        = string
   default     = "~/.ssh/id_rsa.pub" # Provide a sensible default
 }
 
 locals {
-  ssh_public_key = file(var.ssh_key_path)
+  ssh_public_key = file(var.ssh_public_key_path)
 }
+
+variable "ssh_private_key_path" {
+  description = "Path to the SSH private key"
+  type        = string
+  default     = "~/.ssh/id_rsa" # Provide a sensible default
+}
+
+locals {
+  ssh_private_key = file(var.ssh_private_key_path)
+}
+
 
 variable "vault_secret_path" {
   description = "Path to the Vault secret containing Proxmox API token"

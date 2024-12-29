@@ -28,8 +28,6 @@ storage = {
   main  = "local-lvm-2"
 }
 
-ssh_public_key_file = "~/.ssh/id_rsa.pub"
-ssh_private_key_file = "~/.ssh/id_rsa"
 
 vault_secret_path = "proxmox"
 

@@ -4,11 +4,12 @@ proxmox = {
   local_storage     = "local"
   local_storage_lvm = "local-lvm-2"
   vault_secret_path = "proxmox"
+  api_user          = "terraform-prov@pve"
+  token_id          = "tid"
 }
-
 nodes = {
   control_plane = {
-    count          = 3
+    count          = 2
     first_id       = "100"
     names_prefix   = "control-plane-"
     ip_range_start = "130"
@@ -18,7 +19,7 @@ nodes = {
     user           = "sudo-amine"
   }
   workers = {
-    count          = 3
+    count          = 2
     first_id       = "120"
     names_prefix   = "worker-"
     ip_range_start = "150" # Starts with this IP

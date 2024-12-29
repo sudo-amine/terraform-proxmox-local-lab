@@ -1,0 +1,31 @@
+---
+- name: Stop Proxmox VM
+  community.general.proxmox_kvm:
+    api_host: "{{ proxmox_host }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ api_token }}"
+    node: "{{ proxmox_node }}"
+    vmid: "{{ vm_id }}"
+    state: stopped
+  register: stop_result
+  no_log: false
+
+- name: Wait for VM to Stop
+  community.general.proxmox_kvm:
+    api_host: "{{ proxmox_host }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ api_token }}"
+    node: "{{ proxmox_node }}"
+    vmid: "{{ vm_id }}"
+    state: current
+  register: vm_status
+  until: vm_status.status == "stopped"
+  retries: 10
+  delay: 5
+  no_log: false
+
+- name: Confirm VM Stopped Status
+  ansible.builtin.debug:
+    msg: "VM {{ vm_id }} is now in the state: {{ vm_status.status }}."

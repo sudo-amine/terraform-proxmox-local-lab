@@ -97,7 +97,7 @@ resource "local_file" "ansible_inventory" {
   vm_id=${var.template_vm.id}
   EOT
 
-  filename = "/home/sudo-amine/terraform-k8s-cluster/terraform-proxmox-local-lab/ansible/inventory/inventory.ini"
+  filename = "/home/sudo-amine/terraform-k8s-cluster/terraform-proxmox-local-lab/vm_template/ansible/inventory/inventory.ini"
 }
 
 # Resource to import the disk remotely using qm importdisk
@@ -183,23 +183,36 @@ resource "null_resource" "resize_disk" {
   }
 }
 
+data "http" "vm_template_status" {
+  depends_on = [null_resource.resize_disk]
+  url        = "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/status/current"
+  request_headers = {
+    Authorization = "PVEAPIToken=${var.proxmox.api_user}!${var.proxmox.token_id}=${data.vault_kv_secret_v2.proxmox_token.data.token}"
+  }
+}
+
 # Null Resource to Run Ansible
 resource "null_resource" "run_ansible" {
   depends_on = [null_resource.resize_disk]
 
   triggers = {
-    always_run = timestamp() # This triggers the resource to run on every apply
+    always_run  = timestamp() # Forces recreation on every apply
+    is_template = jsondecode(data.http.vm_template_status.response_body).data.template == 1 ? "true" : "false"
   }
 
   provisioner "local-exec" {
     command = <<EOT
+      if [ "${self.triggers.is_template}" = "true" ]; then
+        echo "VM is a template. Skipping Ansible execution."
+        exit 0
+      fi
+
       echo "Changing directory to the Ansible project directory..."
-      cd /home/sudo-amine/terraform-k8s-cluster/terraform-proxmox-local-lab/ansible || exit 1
+      cd /home/sudo-amine/terraform-k8s-cluster/terraform-proxmox-local-lab/vm_template/ansible || exit 1
 
       echo "Running Ansible playbook to configure the VM using the virtual environment..."
       ~/venv/bin/ansible-playbook -i inventory/inventory.ini main.yml
 
-      # Check the result of the playbook execution
       if [ $? -eq 0 ]; then
         echo "Ansible playbook executed successfully."
       else
@@ -210,21 +223,20 @@ resource "null_resource" "run_ansible" {
   }
 }
 
-# Null resource to convert the VM into a template using the API
 
-# resource "null_resource" "convert_to_template" {
-#   depends_on = [null_resource.run_ansible]
+resource "null_resource" "convert_to_template" {
+  depends_on = [null_resource.run_ansible]
 
-#   triggers = {
-#     instance_id = proxmox_vm_qemu.template_vm.id
-#   }
+  triggers = {
+    instance_id = proxmox_vm_qemu.template_vm.id
+  }
 
-#   provisioner "local-exec" {
-#     command = <<EOT
-#       # Convert the VM into a template using Proxmox API
-#       curl -X POST --header "Authorization: PVEAPIToken=${var.proxmox.api_user}!${var.proxmox.token_id}=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
-#            "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/template" \
-#            --silent --show-error --write-out "%%{http_code}"
-#     EOT
-#   }
-# }
+  provisioner "local-exec" {
+    command = <<EOT
+      # Convert the VM into a template using Proxmox API
+      curl -X POST --header "Authorization: PVEAPIToken=${var.proxmox.api_user}!${var.proxmox.token_id}=${data.vault_kv_secret_v2.proxmox_token.data.token}" \
+           "https://${var.proxmox.host}:8006/api2/json/nodes/${var.proxmox.node}/qemu/${var.template_vm.id}/template" \
+           --silent --show-error --write-out "%%{http_code}"
+    EOT
+  }
+}

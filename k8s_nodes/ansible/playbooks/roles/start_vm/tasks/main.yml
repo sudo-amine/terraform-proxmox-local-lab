@@ -1,0 +1,54 @@
+---
+- name: Start Proxmox VM
+  community.general.proxmox_kvm:
+    api_host: "{{ proxmox_host }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ api_token }}"
+    node: "{{ proxmox_node }}"
+    vmid: "{{ vm_id }}"
+    state: started
+  register: start_result
+  no_log: true
+
+- name: Wait for VM to Start
+  community.general.proxmox_kvm:
+    api_host: "{{ proxmox_host }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ api_token }}"
+    node: "{{ proxmox_node }}"
+    vmid: "{{ vm_id }}"
+    state: current
+  register: vm_status
+  until: vm_status.status == "running"
+  retries: "{{ start_vm_status_retries }}"
+  delay: "{{ start_vm_status_delay }}"
+  no_log: false
+
+- name: Confirm VM Running Status
+  ansible.builtin.debug:
+    msg: "VM {{ vm_id }} is now in the state: {{ vm_status.status }}."
+
+- name: Fail if VM did not reach running state
+  ansible.builtin.fail:
+    msg: "VM {{ vm_id }} did not reach 'running' state after multiple retries."
+  when: vm_status.status != "running"
+
+- name: Wait for SSH to be Ready
+  ansible.builtin.wait_for:
+    host: "{{ groups['vm'][0] }}"
+    port: 22
+    timeout: "{{ start_vm_ssh_wait_timeout }}"  # Adjust the timeout as needed
+    state: started
+  delegate_to: localhost
+
+- name: Update SSH Fingerprint in Known Hosts
+  ansible.builtin.shell: |
+    ssh-keygen -R {{ groups['vm'][0] }} > /dev/null 2>&1 || true
+    ssh-keyscan -t rsa {{ groups['vm'][0] }} >> {{ lookup('env', 'HOME') }}/.ssh/known_hosts
+  args:
+    executable: /bin/bash
+  register: ssh_fingerprint_result
+  changed_when: ssh_fingerprint_result.rc == 0
+  delegate_to: localhost

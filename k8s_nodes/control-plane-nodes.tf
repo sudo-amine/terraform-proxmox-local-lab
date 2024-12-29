@@ -37,3 +37,20 @@ resource "proxmox_vm_qemu" "control_plane" {
 
 
 }
+
+resource "local_file" "k8s_control_plane_nodes_ansible_inventory" {
+  content = <<EOT
+  [vm]
+  %{ for index, vm in proxmox_vm_qemu.control_plane }
+  ${cidrhost(var.network.gateway_subnet, var.nodes.control_plane.ip_range_start + index)} ansible_user=${var.nodes.control_plane.user} ansible_ssh_private_key_file=${var.ssh_private_key_path} ansible_become=true
+  %{ endfor }
+
+  [all:vars]
+  proxmox_node=${var.proxmox.node}
+  proxmox_host=${var.proxmox.host}
+  proxmox_api_user=${var.proxmox.api_user}
+  proxmox_api_token_id=${var.proxmox.token_id}
+  EOT
+
+  filename = "/home/sudo-amine/terraform-k8s-cluster/terraform-proxmox-local-lab/k8s_nodes/ansible/inventory/control_plane_inventory.ini"
+}

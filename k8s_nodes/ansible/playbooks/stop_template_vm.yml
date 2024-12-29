@@ -1,0 +1,7 @@
+---
+- name: Stop VM
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - proxmox_api_authentication
+    - stop_vm
