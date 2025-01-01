@@ -1,9 +1,22 @@
+# Ignore all .terraform folders anywhere in the project
+**/.terraform/
+
+# Ignore HCL files
 *.hcl
+
+# Ignore log files
 *.log
+
+# Ignore Terraform state files
 *.tfstate
+*.tfstate.backup
+
+# Ignore backup files
 *.backup
 *.backupi
-/.vscode
+
+# Ignore VSCode configuration folder
+.vscode/
+
+# Ignore configuration files
 *.conf
-*.tfstate.backup
-*.tfstate
