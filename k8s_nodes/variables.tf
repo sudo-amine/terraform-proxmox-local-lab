@@ -70,7 +70,7 @@ variable "network" {
   default = {
     bridge         = "vmbr0"
     gateway        = "192.168.1.1"
-    subnet         = "192.168.1.0/24"
+    subnet         = "24"
     gateway_subnet = "192.168.1.0/24"
   }
 }
