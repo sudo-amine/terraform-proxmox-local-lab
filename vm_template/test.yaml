@@ -1,7 +1,0 @@
-- name: Test Vault Lookup
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: Retrieve API token from Vault
-      debug:
-        msg: "{{ lookup('community.hashi_vault.hashi_vault', 'secret/proxmox', auth_method='token', kv_version=2, token='your-token', url='http://<vault-server-ip>:8200') }}"

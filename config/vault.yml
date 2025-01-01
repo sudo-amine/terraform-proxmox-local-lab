@@ -1,0 +1,2 @@
+vault:
+  secret_path: secret/data/proxmox

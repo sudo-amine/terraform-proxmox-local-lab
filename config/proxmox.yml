@@ -1,0 +1,7 @@
+proxmox:
+  host: proxmox.local
+  node: proxmox
+  api_user: terraform@pve
+  token_id: tid
+  storage_local: local
+  storage_main: local-lvm-2

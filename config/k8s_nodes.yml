@@ -1,0 +1,19 @@
+nodes:
+  control_plane:
+    count: 3
+    first_id: "100"
+    names_prefix: control-plane-
+    ip_range_start: 10
+    disk_size: "50G"
+    cores: 4
+    memory: 8192
+    user: sudo-amine
+  workers:
+    count: 5
+    first_id: "200"
+    names_prefix: worker-node-
+    ip_range_start: 20
+    disk_size: "50G"
+    cores: 2
+    memory: 4096
+    user: sudo-amine
