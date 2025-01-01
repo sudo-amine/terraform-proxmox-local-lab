@@ -194,10 +194,9 @@ data "http" "vm_template_status" {
 # Null Resource to Run Ansible
 resource "null_resource" "run_ansible" {
   depends_on = [null_resource.resize_disk]
-
   triggers = {
     always_run  = timestamp() # Forces recreation on every apply
-    is_template = jsondecode(data.http.vm_template_status.response_body).data.template == 1 ? "true" : "false"
+    is_template = try(jsondecode(data.http.vm_template_status.response_body).data.template, 0) == 1 ? "true" : "false"
   }
 
   provisioner "local-exec" {
