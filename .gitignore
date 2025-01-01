@@ -4,3 +4,4 @@
 *.backup
 *.backupi
 /.vscode
+*.conf
