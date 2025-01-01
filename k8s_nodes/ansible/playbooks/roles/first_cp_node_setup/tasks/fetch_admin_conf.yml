@@ -1,0 +1,19 @@
+---
+- name: Ensure kubeconfig directory exists on localhost
+  ansible.builtin.file:
+    path: "~/.kube"
+    state: directory
+    mode: '0700'
+  delegate_to: localhost
+  become: false
+  tags:
+    - kubeconfig
+
+- name: Copy .kube/config from managed node to localhost
+  ansible.builtin.fetch:
+    src: "{{ ansible_user_dir }}/.kube/config"
+    dest: "~/.kube/config"
+    flat: true
+  become: true
+  tags:
+    - kubeconfig

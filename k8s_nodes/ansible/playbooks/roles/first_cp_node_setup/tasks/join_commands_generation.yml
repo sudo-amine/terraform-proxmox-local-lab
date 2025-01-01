@@ -1,0 +1,51 @@
+---
+- name: Retrieve the certificate key with kubeadm
+  ansible.builtin.command:
+    cmd: kubeadm init phase upload-certs --upload-certs
+  register: cert_key_output
+  changed_when: false
+  failed_when: cert_key_output.rc != 0 or not (cert_key_output.stdout | regex_search('Using certificate key:'))
+  become: true
+  tags:
+    - kubeadm_cert_key
+
+- name: Parse certificate key from kubeadm output
+  ansible.builtin.set_fact:
+    cert_key: "{{ cert_key_output.stdout.split('Using certificate key:')[1].strip() }}"
+  when: cert_key_output.stdout | regex_search('Using certificate key:')
+  tags:
+    - kubeadm_cert_key
+
+- name: Retrieve control plane join command
+  ansible.builtin.command:
+    cmd: kubeadm token create --print-join-command --certificate-key {{ cert_key }}
+  register: cp_join_command
+  changed_when: false
+  failed_when: cp_join_command.rc != 0 or cp_join_command.stdout | length == 0
+  become: true
+  tags:
+    - kubeadm_join
+
+- name: Retrieve worker node join command
+  ansible.builtin.command:
+    cmd: kubeadm token create --print-join-command
+  register: worker_join_command
+  changed_when: false
+  failed_when: worker_join_command.rc != 0 or worker_join_command.stdout | length == 0
+  become: true
+  tags:
+    - kubeadm_join
+
+- name: Store control plane join command in hostvars
+  ansible.builtin.set_fact:
+    cp_join_command: "{{ cp_join_command.stdout }}"
+  changed_when: false
+  tags:
+    - kubeadm_join
+
+- name: Store worker join command in hostvars
+  ansible.builtin.set_fact:
+    worker_join_command: "{{ worker_join_command.stdout }}"
+  changed_when: false
+  tags:
+    - kubeadm_join

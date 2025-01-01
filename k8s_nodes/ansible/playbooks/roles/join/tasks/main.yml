@@ -1,0 +1,29 @@
+---
+- name: Check if node is already part of the cluster
+  ansible.builtin.include_role:
+    name: common
+    tasks_from: is_node_in_cluster
+
+- name: Check if kubeadm is already initialized
+  ansible.builtin.include_role:
+    name: common
+    tasks_from: is_kubeadm_initialized
+  when: not is_node_in_cluster
+
+# Reset kubeadm to ensure a clean environment if node not in cluster but kubeadm was previously initialized
+- name: Reset kubeadm to ensure a clean environment
+  ansible.builtin.include_role:
+    name: common
+    tasks_from: reset_kubeadm
+  when:
+    - not is_node_in_cluster
+    - kubeadm_initialized
+
+- name: Join node to the cluster
+  ansible.builtin.command:
+    cmd: "{{ join_command }}"
+  register: join_output
+  when:
+    - not is_node_in_cluster
+  become: true
+  changed_when: "'This node has joined the cluster' in join_output.stdout"

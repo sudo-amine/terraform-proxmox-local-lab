@@ -1,0 +1,24 @@
+---
+- name: Initialize Kubernetes Cluster
+  hosts: first_cp_node # Runs only on the first control plane node
+  become: true
+  roles:
+    - first_cp_node_setup
+
+- name: Join Control Plane Nodes to the Cluster
+  hosts: other_cp_nodes
+  become: true
+  vars:
+    join_command: "{{ hostvars[groups['first_cp_node'][0]].cp_join_command }}"
+    node_in_cluster: "{{ is_node_in_cluster }}"
+  roles:
+    - join
+
+- name: Join Worker Nodes to the Cluster
+  hosts: worker_nodes
+  become: true
+  vars:
+    join_command: "{{ hostvars[groups['first_cp_node'][0]].worker_join_command }}"
+    node_in_cluster: "{{ is_worker_in_cluster }}"
+  roles:
+    - join

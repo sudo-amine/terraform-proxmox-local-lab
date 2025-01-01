@@ -9,17 +9,17 @@ proxmox = {
 }
 nodes = {
   control_plane = {
-    count          = 2
+    count          = 3
     first_id       = "100"
     names_prefix   = "control-plane-"
     ip_range_start = "130"
     disk_size      = "20G" # Matches the disk size in the resource
-    cores          = 1
+    cores          = 2
     memory         = 2048
     user           = "sudo-amine"
   }
   workers = {
-    count          = 2
+    count          = 3
     first_id       = "120"
     names_prefix   = "worker-"
     ip_range_start = "150" # Starts with this IP

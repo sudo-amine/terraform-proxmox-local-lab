@@ -1,0 +1,10 @@
+---
+- name: Check if kubeadm is already initialized
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubeadm_init_check
+  become: true
+
+- name: Set fact for Kubernetes initialization status
+  ansible.builtin.set_fact:
+    kubeadm_initialized: "{{ kubeadm_init_check.stat.exists }}"

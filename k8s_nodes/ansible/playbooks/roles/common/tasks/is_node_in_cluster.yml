@@ -1,0 +1,15 @@
+---
+- name: Check if the node is already part of the cluster
+  ansible.builtin.command:
+    cmd: kubectl get nodes --no-headers -o custom-columns=NAME:.metadata.name
+  register: node_list
+  delegate_to: "{{ groups['first_cp_node'][0] }}"  # Check from the first control plane node
+  run_once: true  # Run once and cache the result
+  changed_when: false
+  become: true
+  failed_when: node_list.rc != 0  # Fail if the kubectl command fails
+
+- name: Determine if the current node is part of the cluster
+  ansible.builtin.set_fact:
+    is_node_in_cluster: "{{ inventory_hostname in node_list.stdout_lines }}"
+  changed_when: false

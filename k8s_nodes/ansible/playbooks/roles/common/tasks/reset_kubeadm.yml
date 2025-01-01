@@ -1,0 +1,13 @@
+---
+- name: Reset kubeadm to ensure a clean environment
+  ansible.builtin.command:
+    cmd: kubeadm reset -f
+  register: kubeadm_reset_output
+  changed_when: "'[reset]' in kubeadm_reset_output.stdout"  # Mark as changed only if reset occurs
+  ignore_errors: true  # Allow playbook to continue if the node is already clean
+
+- name: Remove leftover Kubernetes configuration
+  ansible.builtin.file:
+    path: /etc/kubernetes
+    state: absent
+  changed_when: false  # Do not mark this as changed unnecessarily

@@ -7,3 +7,4 @@
     - update_package
     - install_dependencies
     - configure_qemu
+    - add_control_plane_endpoint

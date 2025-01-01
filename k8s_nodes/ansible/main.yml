@@ -1,9 +1,6 @@
 ---
 - name: Start VM
-  import_playbook: playbooks/start_template_vm.yml
+  import_playbook: playbooks/start_all_vms.yml
 
 - name: Install and Configure VM
-  import_playbook: playbooks/install_template_vm.yml
-
-- name: Stop VM
-  import_playbook: playbooks/stop_template_vm.yml
+  import_playbook: playbooks/initialize_cluster.yml

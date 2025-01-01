@@ -1,0 +1,34 @@
+- name: Detect the correct hosts template path
+  ansible.builtin.set_fact:
+    template_path: >-
+      {{
+        {
+          'RedHat': '/etc/cloud/templates/hosts.redhat.tmpl',
+          'Ubuntu': '/etc/cloud/templates/hosts.debian.tmpl'
+        }
+        [ansible_facts['distribution']]
+        | default('/etc/cloud/templates/hosts.tmpl')
+      }}
+
+- name: Debug the resolved template_path
+  ansible.builtin.debug:
+    msg: "Resolved template_path: '{{ template_path }}'"
+
+- name: Add entry to the cloud-init hosts template
+  ansible.builtin.lineinfile:
+    path: "{{ template_path }}"
+    line: "192.168.1.130 control-plane.local"
+    state: present
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+
+- name: Regenerate /etc/hosts using cloud-init
+  ansible.builtin.command:
+    cmd: cloud-init init
+  become: true
+  changed_when: true
+  tags:
+    - always

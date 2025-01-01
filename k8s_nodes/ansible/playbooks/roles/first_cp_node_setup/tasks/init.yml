@@ -1,0 +1,16 @@
+- name: Initialize the Kubernetes control plane
+  ansible.builtin.command:
+    cmd: >
+      kubeadm init --upload-certs
+      --apiserver-cert-extra-sans={{ control_plane_endpoint }}
+      --pod-network-cidr={{ pod_network_cidr }}
+      --control-plane-endpoint={{ control_plane_endpoint }}:6443
+  register: kubeadm_init_output
+  changed_when: kubeadm_init_output.rc == 0
+  become: true
+  retries: 3
+  delay: 10
+  until: kubeadm_init_output.rc == 0
+  when: not kubeadm_init_check.stat.exists
+  tags:
+    - kubeadm_init

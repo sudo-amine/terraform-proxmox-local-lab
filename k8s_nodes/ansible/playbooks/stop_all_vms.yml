@@ -1,0 +1,6 @@
+---
+- name: Authenticate with Proxmox API
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - proxmox_api_authentication
