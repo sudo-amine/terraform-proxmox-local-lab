@@ -5,3 +5,5 @@
 *.backupi
 /.vscode
 *.conf
+*.tfstate.backup
+*.tfstate
