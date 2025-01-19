@@ -16,44 +16,51 @@ variable "storage" {
 
 variable "vm_template" {
   type = object({
-    id         = string
-    name       = string
-    disk_size  = string
-    ip         = string
-    image_name = string
-    image_url  = string
+    id        = string
+    name      = string
+    ip        = string
+    image_url = string
+  })
+}
+
+variable "proxmox" {
+  description = "Configuration for the Proxmox API and node"
+  type = object({
+    api_user     = string
+    api_token_id = string
+    host         = string
+    node         = string
+    api_url      = string
+    user         = string
+    ssh_key_path = string
   })
 }
 
 
-variable "proxmox_api_token" {
+variable "secret_proxmox_api_token" {
   description = "Proxmox API token"
-  type = string
-  sensitive = true
+  type        = string
+}
+
+variable "vault" {
+  description = "Configuration for the Vault API"
+  type = object({
+    address = string
+    role_id = string
+    secret_id = string
+  })
 }
 
 
-variable "proxmox_api_user" {
-  description = "Proxmox API user"
-  type = string
+variable "vm_ssh" {
+  description = "Configuration for SSH key paths"
+  type = object({
+    private_key_path = string
+    public_key_path  = string
+  })
 }
 
-variable "proxmox_api_token_id" {
-  description = "Proxmox API token ID"
-  type = string
-}
-
-variable "proxmox_host" {
-  description = "Proxmox Host"
-  type = string
-}
-
-variable "proxmox_node" {
-  description = "Proxmox Node"
-  type = string
-}
-
-variable "proxmox_api_url" {
-  description = "Proxmox API URL"
-  type = string
+variable "vm_user" {
+  description = "The username for the VM"
+  type        = string
 }

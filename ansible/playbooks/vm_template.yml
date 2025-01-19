@@ -1,9 +1,23 @@
 ---
-- name: Start VM
-  import_playbook: playbooks/start_template_vm.yml
+- name: Start VM and Configure SSH
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - proxmox_api_authentication
+    - start_vm
 
 - name: Install and Configure VM
-  import_playbook: playbooks/install_template_vm.yml
+  hosts: vm_template
+  gather_facts: true
+  become: true
+  roles:
+    - update_package
+    - install_dependencies
+    - configure_qemu
+    - add_control_plane_endpoint
 
 - name: Stop VM
-  import_playbook: playbooks/stop_template_vm.yml
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - stop_vm

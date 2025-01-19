@@ -8,6 +8,7 @@
     node: "{{ proxmox_node }}"
     vmid: "{{ vm_id }}"
     state: stopped
+    force: true
   register: stop_result
   no_log: false
 

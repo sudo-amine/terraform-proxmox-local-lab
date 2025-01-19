@@ -9,7 +9,7 @@
       secret_id: "{{ lookup('env', 'VAULT_SECRET_ID') }}"
     return_content: true
   register: vault_auth_response
-  no_log: true
+  no_log: false
 
 - name: Retrieve Proxmox API Token from Vault
   ansible.builtin.uri:
@@ -19,9 +19,9 @@
       X-Vault-Token: "{{ vault_auth_response.json.auth.client_token }}"
     return_content: true
   register: vault_secret_response
-  no_log: true
+  no_log: false
 
 - name: Extract Proxmox API Token
   ansible.builtin.set_fact:
     api_token: "{{ vault_secret_response.json.data.data.token }}"
-  no_log: true
+  no_log: false

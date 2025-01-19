@@ -22,6 +22,7 @@ variable "workers" {
   })
 }
 
+
 variable "network" {
   type = object({
     bridge         = string
@@ -40,36 +41,9 @@ variable "storage" {
 
 variable "vm_template" {
   type = object({
-    id         = string
-    name       = string
-    disk_size  = string
-    ip         = string
-    image_name = string
-    image_url  = string
+    id        = string
+    name      = string
+    ip        = string
+    image_url = string
   })
-}
-
-variable "proxmox_api_user" {
-  description = "The user for the Proxmox API"
-  type        = string
-}
-
-variable "proxmox_api_token_id" {
-  description = "The token ID for Proxmox API authentication"
-  type        = string
-}
-
-variable "proxmox_host" {
-  description = "The Proxmox host name or IP address"
-  type        = string
-}
-
-variable "proxmox_node" {
-  description = "The Proxmox node where resources will be deployed"
-  type        = string
-}
-
-variable "proxmox_api_url" {
-  description = "The full API URL for Proxmox"
-  type        = string
 }

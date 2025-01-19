@@ -8,20 +8,20 @@ terraform {
 }
 
 provider "vault" {
-  address = var.vault_config.address
+  address = local.vault.address
   auth_login {
     path = "auth/approle/login"
     parameters = {
-      role_id   = var.vault_config.role_id
-      secret_id = var.vault_config.secret_id
+      role_id   = local.vault.role_id
+      secret_id = local.vault.secret_id
     }
   }
 }
 
 provider "proxmox" {
-  pm_api_url          = var.proxmox_api_url
-  pm_api_token_id     = "${var.proxmox_api_user}!${var.proxmox_api_token_id}"
-  pm_api_token_secret = data.vault_generic_secret.proxmox_token.data.token
+  pm_api_url          = local.proxmox.api_url
+  pm_api_token_id     = "${local.proxmox.api_user}!${local.proxmox.api_token_id}"
+  pm_api_token_secret = data.vault_kv_secret_v2.proxmox_token.data.token
   pm_tls_insecure     = false
 }
 

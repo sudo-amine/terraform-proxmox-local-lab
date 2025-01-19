@@ -20,3 +20,12 @@
 
 # Ignore configuration files
 *.conf
+.codegpt
+
+# Ignore environment files
+*.env
+
+# Ignore tfvars files
+*.tfvars
+
+TODO

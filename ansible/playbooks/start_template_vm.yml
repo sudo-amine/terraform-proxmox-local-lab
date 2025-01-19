@@ -3,5 +3,4 @@
   hosts: localhost
   gather_facts: false
   roles:
-    - proxmox_api_authentication
     - start_vm

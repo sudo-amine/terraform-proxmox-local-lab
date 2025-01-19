@@ -6,7 +6,7 @@
     api_token_id: "{{ proxmox_api_token_id }}"
     api_token_secret: "{{ api_token }}"
     node: "{{ proxmox_node }}"
-    vmid: "{{ hostvars[vm_name].vm_id }}"  # Access vm_id dynamically from hostvars
+    vmid: "{{ vm_id }}"  # Access vm_id dynamically from hostvars
     state: started
   register: start_result
   no_log: false
@@ -18,7 +18,7 @@
     api_token_id: "{{ proxmox_api_token_id }}"
     api_token_secret: "{{ api_token }}"
     node: "{{ proxmox_node }}"
-    vmid: "{{ hostvars[vm_name].vm_id }}"  # Access vm_id dynamically from hostvars
+    vmid: "{{ vm_id }}"  # Access vm_id dynamically from hostvars
     state: current
   register: vm_status
   until: vm_status.status == "running"
@@ -28,16 +28,16 @@
 
 - name: Confirm VM Running Status
   ansible.builtin.debug:
-    msg: "VM {{ hostvars[vm_name].vm_id }} is now in the state: {{ vm_status.status }}."
+    msg: "VM {{ vm_id }} is now in the state: {{ vm_status.status }}."
 
 - name: Fail if VM did not reach running state
   ansible.builtin.fail:
-    msg: "VM {{ hostvars[vm_name].vm_id }} did not reach 'running' state after multiple retries."
+    msg: "VM {{ vm_id }} did not reach 'running' state after multiple retries."
   when: vm_status.status != "running"
 
 - name: Wait for SSH to be Ready
   ansible.builtin.wait_for:
-    host: "{{ hostvars[vm_name].ansible_host }}"  # Dynamically fetch ansible_host
+    host: "{{ vm_ip }}"
     port: 22
     timeout: "{{ ssh_wait_timeout }}"
     state: started
@@ -45,8 +45,8 @@
 
 - name: Update SSH Fingerprint in Known Hosts
   ansible.builtin.shell: |
-    ssh-keygen -R {{ hostvars[vm_name].ansible_host }} > /dev/null 2>&1 || true
-    ssh-keyscan -t rsa {{ hostvars[vm_name].ansible_host }} >> {{ lookup('env', 'HOME') }}/.ssh/known_hosts
+    ssh-keygen -R {{ vm_ip }} > /dev/null 2>&1 || true
+    ssh-keyscan -t rsa {{ vm_ip }} >> {{ lookup('env', 'HOME') }}/.ssh/known_hosts
   args:
     executable: /bin/bash
   register: ssh_fingerprint_result
