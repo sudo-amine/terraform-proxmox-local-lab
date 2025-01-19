@@ -1,6 +1,6 @@
 # [WIP] Kubernetes cluster provisioning and boostrapping using PROXMOX/TERRAFORM/ANSIBLE
 
-A comprehensive solution leveraging **Proxmox**, **Terraform**, and **Ansible** for efficient infrastructure automation and management.
+A comprehensive solution leveraging **Proxmox**, **Terraform**, and **Ansible** for efficient Kubernetes infrastructure automation and management.
 
 ---
 
