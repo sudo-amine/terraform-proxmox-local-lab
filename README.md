@@ -1,4 +1,4 @@
-# **Project Name**
+# [WIP] Kubernetes cluster provisioning and boostrapping using PROXMOX/TERRAFORM/ANSIBLE
 
 A comprehensive solution leveraging **Proxmox**, **Terraform**, and **Ansible** for efficient infrastructure automation and management.
 
@@ -30,10 +30,10 @@ A comprehensive solution leveraging **Proxmox**, **Terraform**, and **Ansible** 
 ### **Planned Features**
 - [ ] Manage dependencies versions more accurately
 - [ ] Build custom providers or extend existing providers to replace resources that 
-leverage the API
+leverage API access
 
 ### **Immediate TODOs**
-- [ ] Refactor Ansible roles for idempotency.
+- [ ] Check all tf resources and ansible roles for 100% idempotency
 
 
 ---
