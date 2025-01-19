@@ -8,7 +8,7 @@ locals {
     host         = var.proxmox_host
     node         = var.proxmox_node
     api_url      = "https://${var.proxmox_host}:${var.proxmox_api_url_port}/${var.proxmox_api_url_path}"
-    ssh_key_path = var.proxmox_node_ssh_public_key_path
+    ssh_key_path = var.proxmox_node_ssh_key_path
     user         = var.proxmox_node_user
   }
 

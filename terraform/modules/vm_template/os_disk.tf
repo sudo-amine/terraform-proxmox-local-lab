@@ -38,23 +38,55 @@ resource "null_resource" "attach_disk" {
   depends_on = [null_resource.import_disk]
 
   triggers = {
+    always_run  = timestamp()    
+  }
+
+  provisioner "local-exec" {
+    command = <<EOT
+      attached_disk=$(curl -s --header "Authorization: PVEAPIToken=${local.api_user}!${local.token_id}=${local.secret}" \
+        "${local.api_url}/nodes/${local.node}/qemu/${local.vmid}/config" \
+        | jq -r '.data.scsi0')
+
+      # Extract the disk path (remove the ',size=...' part)
+      disk_path=$(echo "$attached_disk" | cut -d',' -f1)
+
+      if [ "$disk_path" != "${local.main_storage}:vm-${local.vmid}-disk-0" ]; then
+        echo "Attaching disk..."
+        curl -X PUT --header "Authorization: PVEAPIToken=${local.api_user}!${local.token_id}=${local.secret}" \
+            --header "Content-Type: application/json" \
+            --data '{"scsi0": "${local.main_storage}:vm-${local.vmid}-disk-0"}' \
+            "${local.api_url}/nodes/${local.node}/qemu/${local.vmid}/config"
+      else
+        echo "Disk already attached. Skipping."
+      fi
+    EOT
+  }
+
+}
+
+resource "null_resource" "resize_disk" {
+  depends_on = [null_resource.attach_disk]
+
+  triggers = {
     instance_id = proxmox_vm_qemu.vm_template.id
   }
 
   provisioner "local-exec" {
     command = <<EOT
-      attached_disk=$(curl -s --header "Authorization: PVEAPIToken=${local.user}!${local.token_id}=${local.secret}" \
+      current_size=$(curl -s --header "Authorization: PVEAPIToken=${local.api_user}!${local.token_id}=${local.secret}" \
         "${local.api_url}/nodes/${local.node}/qemu/${local.vmid}/config" \
-        | jq -r '.data.scsi0')
+        | jq -r '.data.scsi0 | split(",")[-1]')
 
-      if [ "$attached_disk" != *"${local.main_storage}:vm-${local.vmid}-disk-0"* ]; then
-        echo "Attaching disk..."
-        curl -X PUT --header "Authorization: PVEAPIToken=${local.user}!${local.token_id}=${local.secret}" \
+      desired_size="${var.vm_template.disk_size}"
+
+      if [ "$current_size" != "$desired_size" ]; then
+        echo "Resizing disk..."
+        curl -X PUT --header "Authorization: PVEAPIToken=${local.api_user}!${local.token_id}=${local.secret}" \
              --header "Content-Type: application/json" \
-             --data '{"scsi0": "${local.main_storage}:vm-${local.vmid}-disk-0"}' \
-             "${local.api_url}/nodes/${local.node}/qemu/${local.vmid}/config"
+             --data '{"disk": "scsi0", "size": "+${var.vm_template.disk_size}"}' \
+             "${local.api_url}/nodes/${local.node}/qemu/${local.vmid}/resize"
       else
-        echo "Disk already attached. Skipping."
+        echo "Disk already at desired size. Skipping resize."
       fi
     EOT
   }

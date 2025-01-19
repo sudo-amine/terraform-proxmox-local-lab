@@ -5,6 +5,7 @@ locals {
   main_storage         = var.storage.main
   node                 = var.proxmox.node
   host                 = var.proxmox.host
+  api_user             = var.proxmox.api_user
   api_url              = var.proxmox.api_url
   image_url            = var.vm_template.image_url
   secret               = var.secret_proxmox_api_token
@@ -13,6 +14,7 @@ locals {
   vmid                 = var.vm_template.id
   name                 = var.vm_template.name
   ip                   = var.vm_template.ip
+  disk_size            = var.vm_template.disk_size
 
   extra_vars = {
     proxmox_host         = var.proxmox.host

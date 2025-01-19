@@ -45,5 +45,6 @@ variable "vm_template" {
     name      = string
     ip        = string
     image_url = string
+    disk_size = string
   })
 }

@@ -1,4 +1,9 @@
 ---
+- name: Retrieve Proxmox API Token from Vault
+  ansible.builtin.set_fact:
+    api_token: "{{ lookup('community.hashi_vault.hashi_vault', 'secret=secret/data/proxmox:token kv_version=2 validate_certs=false auth_method=approle') }}"
+  no_log: false
+
 - name: Stop Proxmox VM
   community.general.proxmox_kvm:
     api_host: "{{ proxmox_host }}"

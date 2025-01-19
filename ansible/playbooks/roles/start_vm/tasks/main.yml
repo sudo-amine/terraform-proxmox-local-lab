@@ -1,4 +1,9 @@
 ---
+- name: Retrieve Proxmox API Token from Vault
+  ansible.builtin.set_fact:
+    api_token: "{{ lookup('community.hashi_vault.hashi_vault', 'secret=secret/data/proxmox:token kv_version=2 validate_certs=false auth_method=approle') }}"
+  no_log: false
+
 - name: Start Proxmox VM
   community.general.proxmox_kvm:
     api_host: "{{ proxmox_host }}"
@@ -6,7 +11,7 @@
     api_token_id: "{{ proxmox_api_token_id }}"
     api_token_secret: "{{ api_token }}"
     node: "{{ proxmox_node }}"
-    vmid: "{{ vm_id }}"  # Access vm_id dynamically from hostvars
+    vmid: "{{ vm_id }}"
     state: started
   register: start_result
   no_log: false
@@ -18,7 +23,7 @@
     api_token_id: "{{ proxmox_api_token_id }}"
     api_token_secret: "{{ api_token }}"
     node: "{{ proxmox_node }}"
-    vmid: "{{ vm_id }}"  # Access vm_id dynamically from hostvars
+    vmid: "{{ vm_id }}"
     state: current
   register: vm_status
   until: vm_status.status == "running"
@@ -41,7 +46,6 @@
     port: 22
     timeout: "{{ ssh_wait_timeout }}"
     state: started
-  delegate_to: localhost
 
 - name: Update SSH Fingerprint in Known Hosts
   ansible.builtin.shell: |
@@ -51,4 +55,3 @@
     executable: /bin/bash
   register: ssh_fingerprint_result
   changed_when: ssh_fingerprint_result.rc == 0
-  delegate_to: localhost

@@ -24,7 +24,7 @@ variable "proxmox_node_user" {
   type        = string
 }
 
-variable "proxmox_node_ssh_public_key_path" {
+variable "proxmox_node_ssh_key_path" {
   description = "The file path to the public SSH key for the Proxmox node"
   type        = string
 }

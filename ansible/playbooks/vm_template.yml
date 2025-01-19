@@ -3,11 +3,10 @@
   hosts: localhost
   gather_facts: false
   roles:
-    - proxmox_api_authentication
     - start_vm
 
 - name: Install and Configure VM
-  hosts: vm_template
+  hosts: vm-template
   gather_facts: true
   become: true
   roles:
