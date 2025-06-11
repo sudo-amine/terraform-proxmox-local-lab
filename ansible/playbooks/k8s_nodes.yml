@@ -2,5 +2,5 @@
 - name: Start VM
   import_playbook: playbooks/start_all_vms.yml
 
-- name: Install and Configure VM
-  import_playbook: playbooks/initialize_cluster.yml
+# - name: Install and Configure VM
+#   import_playbook: playbooks/initialize_cluster.yml

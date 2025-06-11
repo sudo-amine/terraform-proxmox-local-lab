@@ -10,7 +10,7 @@ variable "control_plane" {
   })
 }
 
-variable "workers" {
+variable "worker_nodes" {
   type = object({
     count          = number
     first_id       = string

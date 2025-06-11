@@ -34,9 +34,23 @@ resource "proxmox_vm_qemu" "vm_template" {
   }
 
   lifecycle {
-    # ignore_changes = [
-    #   disk
-    # ]
     ignore_changes = all
+  }
+}
+
+resource "null_resource" "convert_to_template" {
+  depends_on = [null_resource.run_ansible]
+
+  triggers = {
+    instance_id = proxmox_vm_qemu.vm_template.id
+  }
+
+  provisioner "local-exec" {
+    command = <<EOT
+      # Convert the VM into a template using Proxmox API
+      curl -X POST --header "Authorization: PVEAPIToken=${var.proxmox_api_user}!${var.proxmox_api_token_id}=${local.secret_proxmox_api_token}" \
+           "https://${var.proxmox_host}:${var.proxmox_api_url_port}/${var.proxmox_api_url_path}/nodes/${var.proxmox_node}/qemu/${var.vm_template.id}/template" \
+           --silent --show-error --write-out "%%{http_code}"
+    EOT
   }
 }

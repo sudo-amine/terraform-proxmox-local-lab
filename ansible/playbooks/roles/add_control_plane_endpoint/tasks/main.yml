@@ -17,7 +17,7 @@
 - name: Add entry to the cloud-init hosts template
   ansible.builtin.lineinfile:
     path: "{{ template_path }}"
-    line: "192.168.1.130 control-plane.local"
+    line: "192.168.1.100 control-plane.local"
     state: present
     create: true
     owner: root

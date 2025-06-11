@@ -1,18 +1,14 @@
 ---
-- name: Authenticate with Proxmox API
-  hosts: localhost
-  gather_facts: false
-  roles:
-    - proxmox_api_authentication
-
 - name: Start all Proxmox VMs
   hosts: localhost
   gather_facts: false
   tasks:
     - name: Include role for each VM in the inventory
       ansible.builtin.include_role:
-        name: common
-        tasks_from: start_vm
-      loop: "{{ groups['all'] }}"  # Loop over all VMs in the inventory
+        name: start_vm
+      loop: "{{ groups['control_plane'] | union(groups['worker_nodes']) }}"
       loop_control:
         loop_var: vm_name
+        extended: true
+      vars:
+        vm_vars: "{{ hostvars[vm_name] }}"
